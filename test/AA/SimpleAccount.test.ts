@@ -1,51 +1,62 @@
 import { ethers } from "hardhat";
-import { Contract } from "ethers";
 import { expect } from "chai";
+import { Contract } from "@ethersproject/contracts";
 
-describe("EntryPoint", function () {
+describe("EntryPoint and SimpleAccount2", function () {
   let entryPoint: Contract;
   let simpleAccount: Contract;
+  let admin: any;
+  let ep: any;
+  let userA: any;
+  let userB: any;
 
-  beforeEach(async function () {
-    const SimpleAccount = await ethers.getContractFactory("SimpleAccount");
-    simpleAccount = await SimpleAccount.deploy();
+  before(async () => {
+    // Get the signers
+    [admin, ep, userA, userB] = await ethers.getSigners();
 
-    const EntryPoint = await ethers.getContractFactory("EntryPoint");
+    // Deploy EntryPoint contract
+    const EntryPoint = await ethers.getContractFactory("EntryPoint", ep);
     entryPoint = await EntryPoint.deploy();
+
+    // Deploy SimpleAccount contract
+    const SimpleAccount = await ethers.getContractFactory(
+      "SimpleAccount",
+      userA
+    );
+    simpleAccount = await SimpleAccount.deploy();
   });
 
   it("should transfer ether from SimpleAccount to another address", async function () {
-    // 이전 잔고와 비교할 주소와 양
-    const recipient = ethers.utils.getAddress(
-      "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF"
-    );
-    const amount = ethers.utils.parseEther("0.1");
-
-    // 수신자의 이전 잔고
-    const beforeBalance = await ethers.provider.getBalance(recipient);
-
-    // SimpleAccount 컨트랙트에서 지정된 양만큼 이동
-    await entryPoint.handleOps({
+    // Send 1 ether from admin account to SimpleAccount
+    await admin.sendTransaction({
+      to: simpleAccount.address,
+      value: ethers.utils.parseEther("1"),
+    });
+    // Execute SimpleAccount's execute function through EntryPoint contract
+    const data = simpleAccount.interface.encodeFunctionData("execute", [
+      userB.address,
+      ethers.utils.parseEther("0.1"),
+      "0x",
+    ]);
+    await entryPoint.connect(ep).handleOps({
       sender: simpleAccount.address,
       nonce: 0,
       initCode: "0x",
-      callData: simpleAccount.interface.encodeFunctionData(
-        "transfer(address,uint256)",
-        [recipient, amount]
-      ),
+      callData: data,
       callGasLimit: 1000000,
       verificationGasLimit: 1000000,
-      preVerificationGas: 0,
-      maxFeePerGas: 100,
-      maxPriorityFeePerGas: 1,
+      preVerificationGas: 1000000,
+      maxFeePerGas: 0,
+      maxPriorityFeePerGas: 0,
       paymasterAndData: "0x",
       signature: "0x",
     });
-
-    // 수신자의 이후 잔고
-    const afterBalance = await ethers.provider.getBalance(recipient);
-
-    // 이전 잔고와 지정된 양의 차이를 확인하여 전송이 이루어졌는지 확인
-    expect(afterBalance.sub(beforeBalance)).to.equal(amount);
+    // Check that 0.1 ether was transferred from SimpleAccount to userA
+    expect(await ethers.provider.getBalance(simpleAccount.address)).to.equal(
+      ethers.utils.parseEther("0.9")
+    );
+    expect(await ethers.provider.getBalance(userB.address)).to.equal(
+      ethers.utils.parseEther("10000.1")
+    );
   });
 });
