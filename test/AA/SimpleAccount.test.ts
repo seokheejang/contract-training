@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { Contract } from "@ethersproject/contracts";
 
-describe("EntryPoint and SimpleAccount2", function () {
+describe("EntryPoint and SimpleAccount", function () {
   let entryPoint: Contract;
   let simpleAccount: Contract;
   let admin: any;
@@ -35,10 +35,10 @@ describe("EntryPoint and SimpleAccount2", function () {
     // Execute SimpleAccount's execute function through EntryPoint contract
     const data = simpleAccount.interface.encodeFunctionData("execute", [
       userB.address,
-      ethers.utils.parseEther("0.1"),
+      ethers.utils.parseEther("0.2"),
       "0x",
     ]);
-    await entryPoint.connect(ep).handleOps({
+    const tx = await entryPoint.connect(ep).handleOps({
       sender: simpleAccount.address,
       nonce: 0,
       initCode: "0x",
@@ -51,12 +51,30 @@ describe("EntryPoint and SimpleAccount2", function () {
       paymasterAndData: "0x",
       signature: "0x",
     });
+
+    const receipt = await tx.wait();
+    const CALL_EVENT = "Call";
+    const logs = receipt.logs.filter(
+      (log: any) =>
+        log.address === simpleAccount.address &&
+        log.topics[0] === simpleAccount.interface.getEventTopic(CALL_EVENT)
+    );
+    const eventFragment = simpleAccount.interface.getEvent(CALL_EVENT);
+    const logResult = simpleAccount.interface.decodeEventLog(
+      eventFragment,
+      logs[0].data
+    );
+
+    // Check "Call" event logs data
+    expect(logResult.success).to.equal(true);
+    expect(logResult.result).to.equal("0x");
+
     // Check that 0.1 ether was transferred from SimpleAccount to userA
     expect(await ethers.provider.getBalance(simpleAccount.address)).to.equal(
-      ethers.utils.parseEther("0.9")
+      ethers.utils.parseEther("0.8")
     );
     expect(await ethers.provider.getBalance(userB.address)).to.equal(
-      ethers.utils.parseEther("10000.1")
+      ethers.utils.parseEther("10000.2")
     );
   });
 });
