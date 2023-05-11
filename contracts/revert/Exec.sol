@@ -19,7 +19,7 @@ contract Exec {
     try target.callRevert(flag) returns (string memory result) {
       emit eventCallTarget(result);
     } catch Error(string memory reason) {
-      // revert(reason);
+      // revert(reason); 
       this.decreseNonce();
       emit eventRevert(0x8);     
     } catch {

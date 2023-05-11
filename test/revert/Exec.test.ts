@@ -30,7 +30,7 @@ describe("Exec Contract", function () {
     expect(eventRevert).to.not.be.undefined;
     expect(eventRevert.args.result).to.equal(8);
     expect(initialNonce).to.equal(0);
-    expect(newNonce).to.equal(0); // 다른 컨트랙트에서 revert가 나더라도 기존 컨트랙트는 상태값 변형
+    expect(newNonce).to.equal(0); // 다른 컨트랙트에서 revert 되더라도 기존 컨트랙트는 상태 변수값 변형 유지
   });
 
   it("emits eventCallTarget when calling callTarget function with flag=true", async function () {
